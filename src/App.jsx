@@ -25,7 +25,7 @@ function App() {
   const [activeMode, setActiveMode] = useState('text'); // 'text' or 'subtitles'
   const [isTextSettingsOpen, setIsTextSettingsOpen] = useState(false);
   const [isSubSettingsOpen, setIsSubSettingsOpen] = useState(false);
-  const [resetSubtitlesMenu, setResetSubtitlesMenu] = useState(() => () => {});
+  const [resetSubtitlesMenu, setResetSubtitlesMenu] = useState(() => () => { });
 
   const { requestWakeLock } = useWakeLock();
 
@@ -35,35 +35,35 @@ function App() {
 
   return (
     <div className={`app-container active-${activeMode}`}>
-      
+
       {/* Top Panel - Main Text Feature / Top Menu */}
       <div className={`panel panel-top ${activeMode === 'text' ? 'panel-active' : 'panel-menu'}`}>
-        
+
         {/* Top Menu (Visible when Subtitles are active) */}
         {activeMode === 'subtitles' && (
           <div className="menu-bar">
             <div className="menu-actions">
-               {/* Menu options for Subtitles go here, left aligned */}
-               <button className="icon-btn" onClick={() => setIsSubSettingsOpen(true)}>
-                  <SettingsIcon />
-               </button>
-               {/* Opcion para volver a seleccionar otro subtitulo */}
-               <button className="menu-switch-btn" onClick={() => resetSubtitlesMenu()} style={{marginLeft:'8px', height:'40px'}}>
-                  Search New Sub
-               </button>
+              {/* Menu options for Subtitles go here, left aligned */}
+              <button className="icon-btn" onClick={() => setIsSubSettingsOpen(true)}>
+                <SettingsIcon />
+              </button>
+              {/* Opcion para volver a seleccionar otro subtitulo */}
+              <button className="menu-switch-btn" onClick={() => resetSubtitlesMenu()} style={{ marginLeft: '8px', height: '40px' }}>
+                Search New Sub
+              </button>
             </div>
-            
+
             {/* Button at the right to switch back to Text mode */}
             <button className="menu-switch-btn" onClick={() => setActiveMode('text')}>
-              <SwitchIcon /> <span style={{marginLeft: '8px'}}>Text</span>
+              <SwitchIcon /> <span style={{ marginLeft: '8px' }}>Text</span>
             </button>
           </div>
         )}
 
         <div className="active-content">
           {activeMode === 'text' && (
-            <TextPanel 
-              isActive={activeMode === 'text'} 
+            <TextPanel
+              isActive={activeMode === 'text'}
               isSettingsOpen={isTextSettingsOpen}
               onCloseSettings={() => setIsTextSettingsOpen(false)}
             />
@@ -73,21 +73,21 @@ function App() {
 
       {/* Bottom Panel - Subtitles Feature / Bottom Menu */}
       <div className={`panel panel-bottom ${activeMode === 'subtitles' ? 'panel-active' : 'panel-menu'}`}>
-        
+
         {/* Bottom Menu (Visible when Text is active) */}
         {activeMode === 'text' && (
           <div className="menu-bar">
             <div className="menu-actions">
-               {/* Settings buttons for Text function */}
-               <button className="icon-btn" onClick={() => setIsTextSettingsOpen(true)}>
-                  <SettingsIcon />
-               </button>
-               <span>Text Settings</span>
+              {/* Settings buttons for Text function */}
+              <button className="icon-btn" onClick={() => setIsTextSettingsOpen(true)}>
+                <SettingsIcon />
+              </button>
+              <span>Text Settings</span>
             </div>
-            
+
             {/* Button at the right to switch to Subtitles mode */}
             <button className="menu-switch-btn" onClick={() => setActiveMode('subtitles')}>
-               <span style={{marginRight: '8px'}}>Subs</span> <SwitchIcon />
+              <span style={{ marginRight: '8px' }}>Subs</span> <SwitchIcon />
             </button>
           </div>
         )}
@@ -103,7 +103,7 @@ function App() {
           )}
         </div>
       </div>
-      
+
     </div>
   );
 }

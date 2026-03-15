@@ -60,7 +60,6 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
     if (!searchQuery) return;
 
     try {
-      // Correct endpoint: /api/v1/features (not /features/search)
       const res = await fetch(`https://api.opensubtitles.com/api/v1/features?query=${encodeURIComponent(searchQuery)}`, { headers });
       if (res.status === 401 || res.status === 403) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
@@ -87,7 +86,6 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
   const handleSelectMovie = async (movie) => {
     setSelectedMovie(movie);
 
-    // In OpenSubtitles API, you query subtitles by imdb_id or tmdb_id, not feature_id.
     try {
       let queryParam = '';
       if (movie.imdb_id) {
@@ -169,7 +167,7 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
         } else {
           console.warn("API did not return a download link. Response:", postData);
           alert(`API Download Error: ${postData.message || postData.error || 'No valid link returned. (A VIP account/Token may be required)'}`);
-          
+
           // Provide fake SRT so play button can be tested even if download fails
           const fakeSrt = "1\n00:00:00,000 --> 00:00:05,000\n[API Download Failed]\n\n2\n00:00:05,500 --> 00:00:10,000\n" + (postData.message || "VIP account may be required.");
           setSrtData(parseSRT(fakeSrt));
@@ -313,9 +311,9 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
       {stage === 'player' && (
         <div className="subs-playback-view" style={{ position: 'relative' }}>
-          <button 
-            className="search-btn" 
-            style={{ position: 'absolute', top: '10px', right: '10px', width: 'auto', padding: '5px 10px', opacity: 0.7, zIndex: 10 }} 
+          <button
+            className="search-btn"
+            style={{ position: 'absolute', top: '10px', right: '10px', width: 'auto', padding: '5px 10px', opacity: 0.7, zIndex: 10 }}
             onClick={() => setStage('search')}
           >
             Search new sub
