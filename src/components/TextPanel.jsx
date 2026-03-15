@@ -101,7 +101,7 @@ export default function TextPanel({ isActive, isSettingsOpen, onCloseSettings })
           color: textColor,
           caretColor: textColor,
         }}
-        placeholder="Toca aquí para escribir..."
+        placeholder="Tap here to type..."
       />
 
       {/* Settings Modal */}

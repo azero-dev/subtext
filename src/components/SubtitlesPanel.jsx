@@ -25,6 +25,17 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
   const [srtData, setSrtData] = useState([]);
 
+  const [history, setHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem('os_subtitles_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [historyToDelete, setHistoryToDelete] = useState(null);
+
   // Player state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0); // in seconds
@@ -48,6 +59,11 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
   useEffect(() => {
     localStorage.setItem('os_api_key', apiKey);
   }, [apiKey]);
+
+  // Persist History
+  useEffect(() => {
+    localStorage.setItem('os_subtitles_history', JSON.stringify(history));
+  }, [history]);
 
   const headers = {
     'Api-Key': apiKey,
@@ -149,6 +165,18 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
   const handleSelectSubtitle = async (sub) => {
     setSelectedSubtitle(sub);
+
+    const historyItem = {
+      id: sub.id,
+      name: sub.name,
+      movieTitle: sub.movieTitle || (selectedMovie ? selectedMovie.title : 'Unknown Movie')
+    };
+
+    setHistory(prev => {
+      const filtered = prev.filter(item => item.id !== sub.id);
+      return [historyItem, ...filtered].slice(0, 50); // Keep last 50
+    });
+
     try {
       if (apiKey) {
         const postRes = await fetch('https://api.opensubtitles.com/api/v1/download', {
@@ -272,14 +300,48 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
             />
             <button className="search-btn" onClick={handleSearch}>Search</button>
           </div>
-          <div className="list-container">
-            {movies.map(m => (
-              <div key={m.id} className="list-item" onClick={() => handleSelectMovie(m)}>
-                <h4>{m.title}</h4>
-                <p>{m.year}</p>
+
+          {history.length > 0 && (
+            <div className="history-section" style={{ width: '100%', maxWidth: '600px', margin: '20px auto 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.2em' }}>Historial</h3>
+                <button
+                  onClick={() => setHistoryToDelete('all')}
+                  style={{ background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Delete history
+                </button>
               </div>
-            ))}
-          </div>
+              <div className="list-container">
+                {history.map(item => (
+                  <div key={item.id} className="list-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', padding: '10px' }}>
+                    <div onClick={() => handleSelectSubtitle({ id: item.id, name: item.name, movieTitle: item.movieTitle })} style={{ flex: 1, cursor: 'pointer' }}>
+                      <h4 style={{ margin: '0 0 5px 0' }}>{item.movieTitle}</h4>
+                      <p style={{ margin: 0, fontSize: '0.85em', opacity: 0.8 }}>{item.name}</p>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setHistoryToDelete(item.id); }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--accent)', fontSize: '1.2em', cursor: 'pointer', padding: '5px' }}
+                      title="Eliminar"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {movies.length > 0 && (
+            <div className="list-container" style={{ marginTop: '20px' }}>
+              {movies.map(m => (
+                <div key={m.id} className="list-item" onClick={() => handleSelectMovie(m)}>
+                  <h4>{m.title}</h4>
+                  <p>{m.year}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -374,6 +436,44 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
               onChange={setBgColor}
             />
 
+          </div>
+        </div>
+      )}
+
+      {/* Delete History Confirmation Modal */}
+      {historyToDelete !== null && (
+        <div className="modal-overlay" onClick={() => setHistoryToDelete(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Confirm deletion</h3>
+              <button className="close-btn" onClick={() => setHistoryToDelete(null)}>X</button>
+            </div>
+
+            <div style={{ padding: '20px 0' }}>
+              <p>Are you sure you want to delete {historyToDelete === 'all' ? 'all history' : 'this entry'}?</p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => setHistoryToDelete(null)}
+                style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (historyToDelete === 'all') {
+                    setHistory([]);
+                  } else {
+                    setHistory(prev => prev.filter(h => h.id !== historyToDelete));
+                  }
+                  setHistoryToDelete(null);
+                }}
+                style={{ background: '#ff4444', color: 'white', padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       )}
