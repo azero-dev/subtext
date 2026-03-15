@@ -1,0 +1,62 @@
+.color-picker-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.color-picker-label {
+  font-size: 14px;
+  color: #aaa;
+  margin-bottom: 4px;
+}
+
+.swatches-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.swatch-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  transition: transform 0.2s, border-color 0.2s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swatch-btn:active {
+  transform: scale(0.9);
+}
+
+.swatch-btn.selected {
+  border-color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.custom-swatch-btn {
+  border: 2px solid #555;
+}
+
+.custom-indicator {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  mix-blend-mode: difference;
+}
+
+.hidden-color-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}

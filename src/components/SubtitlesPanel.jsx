@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './SubtitlesPanel.css';
 import { parseSRT } from '../utils/srtParser';
+import ColorPicker from './ColorPicker';
 
 export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettings, onShowMenuOptions }) {
   const [apiKey, setApiKey] = useState(localStorage.getItem('os_api_key') || '');
@@ -35,7 +36,8 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
   // Expose an option to the parent to reset stage, so clicking menu can reset
   useEffect(() => {
     if (onShowMenuOptions) {
-      onShowMenuOptions(() => {
+      // Pass a function that returns the inner function to properly save it in React state
+      onShowMenuOptions(() => () => {
         setStage('search');
         setIsPlaying(false);
       });
@@ -311,13 +313,6 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
       {stage === 'player' && (
         <div className="subs-playback-view" style={{ position: 'relative' }}>
-          <button
-            className="search-btn"
-            style={{ position: 'absolute', top: '10px', right: '10px', width: 'auto', padding: '5px 10px', opacity: 0.7, zIndex: 10 }}
-            onClick={() => setStage('search')}
-          >
-            Search new sub
-          </button>
           <div className="time-display">{formatTime(currentTime)}</div>
 
           <div className="subtitle-text" style={{ fontSize: `${textSize}px`, color: textColor }}>
@@ -367,23 +362,17 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
               />
             </div>
 
-            <div className="setting-group">
-              <label>Text Color</label>
-              <input
-                type="color"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-              />
-            </div>
+            <ColorPicker
+              label="Text Color"
+              color={textColor}
+              onChange={setTextColor}
+            />
 
-            <div className="setting-group">
-              <label>Background Color</label>
-              <input
-                type="color"
-                value={bgColor}
-                onChange={(e) => setBgColor(e.target.value)}
-              />
-            </div>
+            <ColorPicker
+              label="Background Color"
+              color={bgColor}
+              onChange={setBgColor}
+            />
 
           </div>
         </div>

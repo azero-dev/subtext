@@ -12,12 +12,11 @@ const SettingsIcon = () => (
   </svg>
 );
 
-const SwitchIcon = () => (
+
+
+const FullscreenIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="15 3 21 3 21 9"></polyline>
-    <path d="M9 21H3v-6"></path>
-    <polyline points="21 3 14 10"></polyline>
-    <line x1="3" y1="21" x2="10" y2="14"></line>
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
   </svg>
 );
 
@@ -32,6 +31,18 @@ function App() {
   useEffect(() => {
     requestWakeLock();
   }, [requestWakeLock]);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.warn(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   return (
     <div className={`app-container active-${activeMode}`}>
@@ -53,10 +64,15 @@ function App() {
               </button>
             </div>
 
-            {/* Button at the right to switch back to Text mode */}
-            <button className="menu-switch-btn" onClick={() => setActiveMode('text')}>
-              <SwitchIcon /> <span style={{ marginLeft: '8px' }}>Text</span>
-            </button>
+            {/* Right side group */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button className="icon-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
+                <FullscreenIcon />
+              </button>
+              <button className="menu-switch-btn" onClick={() => setActiveMode('text')}>
+                <span>Text</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -85,10 +101,15 @@ function App() {
               <span>Text Settings</span>
             </div>
 
-            {/* Button at the right to switch to Subtitles mode */}
-            <button className="menu-switch-btn" onClick={() => setActiveMode('subtitles')}>
-              <span style={{ marginRight: '8px' }}>Subs</span> <SwitchIcon />
-            </button>
+            {/* Right side group */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button className="icon-btn" onClick={toggleFullscreen} title="Toggle Fullscreen">
+                <FullscreenIcon />
+              </button>
+              <button className="menu-switch-btn" onClick={() => setActiveMode('subtitles')}>
+                <span>Subs</span>
+              </button>
+            </div>
           </div>
         )}
 

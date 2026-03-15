@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import './TextPanel.css';
+import ColorPicker from './ColorPicker';
 
 export default function TextPanel({ isActive, isSettingsOpen, onCloseSettings }) {
   const [text, setText] = useState('');
@@ -112,23 +113,17 @@ export default function TextPanel({ isActive, isSettingsOpen, onCloseSettings })
               <button className="close-btn" onClick={onCloseSettings}>✕</button>
             </div>
 
-            <div className="setting-group">
-              <label>Text Color</label>
-              <input
-                type="color"
-                value={textColor}
-                onChange={(e) => setTextColor(e.target.value)}
-              />
-            </div>
+            <ColorPicker
+              label="Text Color"
+              color={textColor}
+              onChange={setTextColor}
+            />
 
-            <div className="setting-group">
-              <label>Background Color</label>
-              <input
-                type="color"
-                value={bgColor}
-                onChange={(e) => setBgColor(e.target.value)}
-              />
-            </div>
+            <ColorPicker
+              label="Background Color"
+              color={bgColor}
+              onChange={setBgColor}
+            />
           </div>
         </div>
       )}
