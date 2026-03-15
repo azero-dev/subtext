@@ -1,106 +1,106 @@
-import { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import './TextPanel.css';
 
 export default function TextPanel({ isActive, isSettingsOpen, onCloseSettings }) {
-  const [text, setText] = useState('Escribe aqui...');
+  const [text, setText] = useState('');
   const [textColor, setTextColor] = useState('#ffffff');
   const [bgColor, setBgColor] = useState('#000000');
-  
+  const [fontSize, setFontSize] = useState(40);
+
   const containerRef = useRef(null);
-  const measureRef = useRef(null);
   const textareaRef = useRef(null);
-  
-  const [fontSize, setFontSize] = useState(40); // default starting point
 
-  // Function to calculate best font size
-  const fitText = () => {
-    if (!containerRef.current || !measureRef.current || !isActive) return;
-
+  // Binary-search for the largest font size where the textarea
+  // does NOT scroll (scrollHeight === clientHeight).
+  const fitText = useCallback(() => {
     const container = containerRef.current;
-    const measure = measureRef.current;
-    
-    // We want the text to fit within the container's layout
-    // We will do a binary search between min and max font sizes
-    let minFont = 10;
-    let maxFont = 300;
-    let bestFit = 10;
+    const textarea = textareaRef.current;
+    if (!container || !textarea || !isActive) return;
 
-    const maxWidth = container.clientWidth;
-    const maxHeight = container.clientHeight;
+    const availW = container.clientWidth;
+    const availH = container.clientHeight;
 
-    // Reset measure width to match container width to ensure wrapping is tested against the right boundary
-    measure.style.width = `${maxWidth}px`;
+    if (availW === 0 || availH === 0) return;
 
-    // Try up to 15 iterations of binary search
-    for (let i = 0; i < 15; i++) {
-      const midPoint = Math.floor((minFont + maxFont) / 2);
-      measure.style.fontSize = `${midPoint}px`;
-      measure.style.lineHeight = `1.2`;
+    const currentText = textarea.value;
 
-      // Wait we don't need async wait usually if it's display block/absolute, DOM reflects immediately in same frame
-      const currentWidth = measure.scrollWidth;
-      const currentHeight = measure.scrollHeight;
-
-      // Check if it fits (with a tiny buffer to prevent rounding issues)
-      if (currentHeight <= maxHeight - 4 && currentWidth <= maxWidth - 4) {
-        bestFit = midPoint;
-        minFont = midPoint + 1; // Try bigger
-      } else {
-        maxFont = midPoint - 1; // Must be smaller
-      }
-      
-      if (minFont > maxFont) break;
+    if (!currentText || currentText.trim() === '') {
+      textarea.style.fontSize = '24px';
+      textarea.style.visibility = 'visible';
+      setFontSize(24);
+      return;
     }
 
-    setFontSize(bestFit);
-  };
+    let lo = 8;
+    let hi = 600;
+    let best = lo;
 
-  // Re-run fit text when text changes or when panel becomes active
-  useLayoutEffect(() => {
-    fitText();
-  }, [text, isActive]);
+    // Temporarily make textarea invisible so layout doesn't flicker
+    textarea.style.visibility = 'hidden';
 
-  // Hook up resize observer to adjust when keyboard shows/hides
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const resizeObserver = new ResizeObserver(() => {
-      fitText();
-    });
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
+    while (lo <= hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      textarea.style.fontSize = `${mid}px`;
+      textarea.style.lineHeight = '1.15';
+
+      // Force layout sync — reading scrollHeight forces reflow
+      const sh = textarea.scrollHeight;
+      const sw = textarea.scrollWidth;
+
+      if (sh <= availH && sw <= availW) {
+        best = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+
+    textarea.style.fontSize = `${best}px`;
+    textarea.style.visibility = 'visible';
+    setFontSize(best);
   }, [isActive]);
 
-  const handleChange = (e) => {
+  // Run fitText whenever text changes
+  useEffect(() => {
+    // Small timeout to allow browser to settle layout after text change
+    const id = setTimeout(fitText, 0);
+    return () => clearTimeout(id);
+  }, [text, fitText]);
+
+  // Watch the container for size changes (keyboard, orientation, resize)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(container._fitTimer);
+      container._fitTimer = setTimeout(fitText, 50);
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [fitText]);
+
+  const handleInput = (e) => {
     setText(e.target.value);
   };
 
   return (
-    <div 
-      className="text-panel-container" 
+    <div
+      className="text-panel-container"
       ref={containerRef}
       style={{ backgroundColor: bgColor }}
     >
-      {/* Hidden measure div identical in style bounds to real textarea */}
-      <div 
-        className="text-measure" 
-        ref={measureRef} 
-        style={{ color: textColor }}
-      >
-        {text === '' ? ' ' : text}
-      </div>
-
       <textarea
         ref={textareaRef}
         className="text-area"
         value={text}
-        onChange={handleChange}
+        onChange={handleInput}
         style={{
           fontSize: `${fontSize}px`,
-          lineHeight: '1.2',
+          lineHeight: '1.15',
           color: textColor,
-          caretColor: textColor
+          caretColor: textColor,
         }}
-        placeholder="Type here..."
+        placeholder="Toca aquí para escribir..."
       />
 
       {/* Settings Modal */}
@@ -109,27 +109,26 @@ export default function TextPanel({ isActive, isSettingsOpen, onCloseSettings })
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Text Settings</h3>
-              <button className="close-btn" onClick={onCloseSettings}>X</button>
+              <button className="close-btn" onClick={onCloseSettings}>✕</button>
             </div>
-            
+
             <div className="setting-group">
               <label>Text Color</label>
-              <input 
-                type="color" 
-                value={textColor} 
-                onChange={(e) => setTextColor(e.target.value)} 
+              <input
+                type="color"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
               />
             </div>
 
             <div className="setting-group">
               <label>Background Color</label>
-              <input 
-                type="color" 
-                value={bgColor} 
-                onChange={(e) => setBgColor(e.target.value)} 
+              <input
+                type="color"
+                value={bgColor}
+                onChange={(e) => setBgColor(e.target.value)}
               />
             </div>
-            
           </div>
         </div>
       )}

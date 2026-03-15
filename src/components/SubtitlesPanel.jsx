@@ -10,24 +10,25 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
   // Stages: 'search', 'languages', 'subtitles', 'player'
   const [stage, setStage] = useState('search');
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [movies, setMovies] = useState([]);
   const [selectedMovie, setSelectedMovie] = useState(null);
-  
+
   const [languages, setLanguages] = useState([]);
   const [selectedLanguage, setSelectedLanguage] = useState(null);
-  
+
   const [subtitlesList, setSubtitlesList] = useState([]);
+  const [filteredSubtitles, setFilteredSubtitles] = useState([]);
   const [selectedSubtitle, setSelectedSubtitle] = useState(null);
-  
+
   const [srtData, setSrtData] = useState([]);
-  
+
   // Player state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0); // in seconds
   const [currentText, setCurrentText] = useState('');
-  
+
   const timerRef = useRef(null);
   const lastUpdateRef = useRef(0);
 
@@ -48,7 +49,7 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
   const headers = {
     'Api-Key': apiKey,
-    'Content-Type': 'application/json'
+    'X-User-Agent': 'SubTextApp v1.0'
   };
 
   const handleSearch = async () => {
@@ -57,60 +58,68 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
       return;
     }
     if (!searchQuery) return;
-    
+
     try {
-      // Mocking or Real call - First try real
-      const res = await fetch(`https://api.opensubtitles.com/api/v1/features/search?query=${encodeURIComponent(searchQuery)}`, { headers });
-      if (res.status === 401) throw new Error("Unauthorized API Key");
+      // Correct endpoint: /api/v1/features (not /features/search)
+      const res = await fetch(`https://api.opensubtitles.com/api/v1/features?query=${encodeURIComponent(searchQuery)}`, { headers });
+      if (res.status === 401 || res.status === 403) throw new Error(`API error: ${res.status}`);
       const data = await res.json();
-      
+
+      if (!data.data || data.data.length === 0) {
+        setMovies([]);
+        return;
+      }
+
       const results = data.data.map(m => ({
-        id: m.attributes.feature_id,
-        title: m.attributes.title,
-        year: m.attributes.year
+        id: m.attributes.feature_id || m.id,
+        imdb_id: m.attributes.imdb_id,
+        tmdb_id: m.attributes.tmdb_id,
+        title: m.attributes.original_title || m.attributes.title,
+        year: m.attributes.year || ''
       }));
       setMovies(results);
     } catch (err) {
-      console.error(err);
-      if (err.message.includes("Unauthorized")) {
-        alert("Invalid API Key");
-      } else {
-        // Fallback for demonstration if network fails
-        setMovies([
-          { id: '1', title: 'Example Movie 1', year: '2023' },
-          { id: '2', title: 'Test Video', year: '2024' }
-        ]);
-      }
+      console.error('Search error:', err);
+      alert(`Search failed: ${err.message}`);
     }
   };
 
   const handleSelectMovie = async (movie) => {
     setSelectedMovie(movie);
-    
-    // In OpenSubtitles API, you usually query subtitles by feature_id and then group by language.
+
+    // In OpenSubtitles API, you query subtitles by imdb_id or tmdb_id, not feature_id.
     try {
-      const res = await fetch(`https://api.opensubtitles.com/api/v1/subtitles?feature_id=${movie.id}`, { headers });
+      let queryParam = '';
+      if (movie.imdb_id) {
+        queryParam = `imdb_id=${movie.imdb_id}`;
+      } else if (movie.tmdb_id) {
+        queryParam = `tmdb_id=${movie.tmdb_id}`;
+      } else {
+        queryParam = `id=${movie.id}`;
+      }
+
+      const res = await fetch(`https://api.opensubtitles.com/api/v1/subtitles?${queryParam}`, { headers });
       if (!res.ok) throw new Error("Failed to fetch subtitles");
       const data = await res.json();
-      
+
       const subs = data.data;
       // Extract unique languages
       const langsMap = new Map();
       subs.forEach(sub => {
-        const l = sub.attributes.language;
+        const l = sub.attributes.language || 'default';
         if (!langsMap.has(l)) langsMap.set(l, []);
         langsMap.get(l).push({
           id: sub.attributes.files[0].file_id,
-          name: sub.attributes.release,
+          name: sub.attributes.release || 'Unknown Release',
           language: l
         });
       });
-      
+
       const langsArray = Array.from(langsMap.keys());
       setLanguages(langsArray);
       setSubtitlesList(subs); // Store all raw subs to filter later
       setStage('languages');
-      
+
     } catch (err) {
       // Fallback
       setLanguages(['en', 'es']);
@@ -120,17 +129,17 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
   const handleSelectLanguage = (lang) => {
     setSelectedLanguage(lang);
-    
+
     // Filter the previously fetched subs by language
     if (apiKey) {
       const filtered = subtitlesList.filter(s => s.attributes.language === lang).map(s => ({
         id: s.attributes.files[0].file_id,
         name: s.attributes.release || 'Unknown Release'
       }));
-      setSubtitlesList(filtered);
+      setFilteredSubtitles(filtered);
     } else {
       // Fallback
-      setSubtitlesList([
+      setFilteredSubtitles([
         { id: '101', name: 'Release.1080p.WebRip' },
         { id: '102', name: 'Release.720p.BRRip' }
       ]);
@@ -144,14 +153,27 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
       if (apiKey) {
         const postRes = await fetch('https://api.opensubtitles.com/api/v1/download', {
           method: 'POST',
-          headers,
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: JSON.stringify({ file_id: sub.id })
         });
         const postData = await postRes.json();
-        
-        const fileRes = await fetch(postData.link);
-        const srtText = await fileRes.text();
-        setSrtData(parseSRT(srtText));
+
+        if (postData.link) {
+          const fileRes = await fetch(postData.link);
+          const srtText = await fileRes.text();
+          setSrtData(parseSRT(srtText));
+        } else {
+          console.warn("API did not return a download link. Response:", postData);
+          alert(`API Download Error: ${postData.message || postData.error || 'No valid link returned. (A VIP account/Token may be required)'}`);
+          
+          // Provide fake SRT so play button can be tested even if download fails
+          const fakeSrt = "1\n00:00:00,000 --> 00:00:05,000\n[API Download Failed]\n\n2\n00:00:05,500 --> 00:00:10,000\n" + (postData.message || "VIP account may be required.");
+          setSrtData(parseSRT(fakeSrt));
+        }
       } else {
         // Fallback fake SRT
         const fakeSrt = "1\n00:00:00,000 --> 00:00:05,000\nThis is a sample subtitle.\n\n2\n00:00:05,500 --> 00:00:10,000\nYou selected: " + sub.name;
@@ -190,7 +212,7 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
   const checkSubtitles = (timeSec) => {
     if (!srtData || srtData.length === 0) return;
-    
+
     // Find active subtitle
     const activeSub = srtData.find(s => timeSec >= s.start && timeSec <= s.end);
     if (activeSub) {
@@ -210,7 +232,7 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
     setCurrentTime(prev => {
       let newTime = prev + seconds;
       if (seconds < 0 && prev < 2) newTime = 0;
-      
+
       const lastSub = srtData[srtData.length - 1];
       if (seconds > 0 && lastSub) {
         if (prev > lastSub.end + 10 - 2) {
@@ -218,7 +240,7 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
           return prev;
         }
       }
-      
+
       checkSubtitles(newTime);
       return Math.max(0, newTime); // never negative
     });
@@ -236,12 +258,12 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
 
   return (
     <div className="subtitles-panel-container" style={{ backgroundColor: bgColor }}>
-      
+
       {stage === 'search' && (
         <div className="subs-setup-view">
           <h2>Find Subtitles</h2>
           <div className="search-bar">
-            <input 
+            <input
               className="search-input"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -264,7 +286,7 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
       {stage === 'languages' && (
         <div className="subs-setup-view">
           <h2>Select Language</h2>
-          <button className="search-btn" style={{width:'fit-content', opacity: 0.7}} onClick={() => setStage('search')}>&larr; Back</button>
+          <button className="search-btn" style={{ width: 'fit-content', opacity: 0.7 }} onClick={() => setStage('search')}>&larr; Back</button>
           <div className="list-container">
             {languages.map(l => (
               <div key={l} className="list-item" onClick={() => handleSelectLanguage(l)}>
@@ -278,9 +300,9 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
       {stage === 'subtitles' && (
         <div className="subs-setup-view">
           <h2>Select File</h2>
-          <button className="search-btn" style={{width:'fit-content', opacity: 0.7}} onClick={() => setStage('languages')}>&larr; Back</button>
+          <button className="search-btn" style={{ width: 'fit-content', opacity: 0.7 }} onClick={() => setStage('languages')}>&larr; Back</button>
           <div className="list-container">
-            {subtitlesList.map((s, i) => (
+            {filteredSubtitles.map((s, i) => (
               <div key={s.id || i} className="list-item" onClick={() => handleSelectSubtitle(s)}>
                 <h4>{s.name}</h4>
               </div>
@@ -290,9 +312,16 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
       )}
 
       {stage === 'player' && (
-        <div className="subs-playback-view">
+        <div className="subs-playback-view" style={{ position: 'relative' }}>
+          <button 
+            className="search-btn" 
+            style={{ position: 'absolute', top: '10px', right: '10px', width: 'auto', padding: '5px 10px', opacity: 0.7, zIndex: 10 }} 
+            onClick={() => setStage('search')}
+          >
+            Search new sub
+          </button>
           <div className="time-display">{formatTime(currentTime)}</div>
-          
+
           <div className="subtitle-text" style={{ fontSize: `${textSize}px`, color: textColor }}>
             {currentText}
           </div>
@@ -318,46 +347,46 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
               <h3>Subtitles Settings</h3>
               <button className="close-btn" onClick={onCloseSettings}>X</button>
             </div>
-            
+
             <div className="setting-group">
               <label>API Key (OpenSubtitles)</label>
-              <input 
-                type="text" 
-                value={apiKey} 
-                onChange={(e) => setApiKey(e.target.value)} 
-                style={{padding: '8px', background:'rgba(255,255,255,0.1)', color:'white', border:'1px solid #333', borderRadius:'4px'}}
+              <input
+                type="text"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                style={{ padding: '8px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #333', borderRadius: '4px' }}
                 placeholder="YOUR_API_KEY"
               />
             </div>
 
             <div className="setting-group">
               <label>Text Size ({textSize}px)</label>
-              <input 
-                type="range" 
-                min="12" max="72" 
-                value={textSize} 
-                onChange={(e) => setTextSize(e.target.value)} 
+              <input
+                type="range"
+                min="12" max="72"
+                value={textSize}
+                onChange={(e) => setTextSize(e.target.value)}
               />
             </div>
 
             <div className="setting-group">
               <label>Text Color</label>
-              <input 
-                type="color" 
-                value={textColor} 
-                onChange={(e) => setTextColor(e.target.value)} 
+              <input
+                type="color"
+                value={textColor}
+                onChange={(e) => setTextColor(e.target.value)}
               />
             </div>
 
             <div className="setting-group">
               <label>Background Color</label>
-              <input 
-                type="color" 
-                value={bgColor} 
-                onChange={(e) => setBgColor(e.target.value)} 
+              <input
+                type="color"
+                value={bgColor}
+                onChange={(e) => setBgColor(e.target.value)}
               />
             </div>
-            
+
           </div>
         </div>
       )}
