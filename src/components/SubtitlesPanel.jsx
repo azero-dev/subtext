@@ -1,0 +1,367 @@
+import { useState, useEffect, useRef } from 'react';
+import './SubtitlesPanel.css';
+import { parseSRT } from '../utils/srtParser';
+
+export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettings, onShowMenuOptions }) {
+  const [apiKey, setApiKey] = useState(localStorage.getItem('os_api_key') || '');
+  const [textSize, setTextSize] = useState(24);
+  const [textColor, setTextColor] = useState('#ffffff');
+  const [bgColor, setBgColor] = useState('#000000');
+
+  // Stages: 'search', 'languages', 'subtitles', 'player'
+  const [stage, setStage] = useState('search');
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [movies, setMovies] = useState([]);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  
+  const [languages, setLanguages] = useState([]);
+  const [selectedLanguage, setSelectedLanguage] = useState(null);
+  
+  const [subtitlesList, setSubtitlesList] = useState([]);
+  const [selectedSubtitle, setSelectedSubtitle] = useState(null);
+  
+  const [srtData, setSrtData] = useState([]);
+  
+  // Player state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0); // in seconds
+  const [currentText, setCurrentText] = useState('');
+  
+  const timerRef = useRef(null);
+  const lastUpdateRef = useRef(0);
+
+  // Expose an option to the parent to reset stage, so clicking menu can reset
+  useEffect(() => {
+    if (onShowMenuOptions) {
+      onShowMenuOptions(() => {
+        setStage('search');
+        setIsPlaying(false);
+      });
+    }
+  }, [onShowMenuOptions]);
+
+  // Persist API Key
+  useEffect(() => {
+    localStorage.setItem('os_api_key', apiKey);
+  }, [apiKey]);
+
+  const headers = {
+    'Api-Key': apiKey,
+    'Content-Type': 'application/json'
+  };
+
+  const handleSearch = async () => {
+    if (!apiKey) {
+      alert("Please enter an OpenSubtitles API Key in the Settings first.");
+      return;
+    }
+    if (!searchQuery) return;
+    
+    try {
+      // Mocking or Real call - First try real
+      const res = await fetch(`https://api.opensubtitles.com/api/v1/features/search?query=${encodeURIComponent(searchQuery)}`, { headers });
+      if (res.status === 401) throw new Error("Unauthorized API Key");
+      const data = await res.json();
+      
+      const results = data.data.map(m => ({
+        id: m.attributes.feature_id,
+        title: m.attributes.title,
+        year: m.attributes.year
+      }));
+      setMovies(results);
+    } catch (err) {
+      console.error(err);
+      if (err.message.includes("Unauthorized")) {
+        alert("Invalid API Key");
+      } else {
+        // Fallback for demonstration if network fails
+        setMovies([
+          { id: '1', title: 'Example Movie 1', year: '2023' },
+          { id: '2', title: 'Test Video', year: '2024' }
+        ]);
+      }
+    }
+  };
+
+  const handleSelectMovie = async (movie) => {
+    setSelectedMovie(movie);
+    
+    // In OpenSubtitles API, you usually query subtitles by feature_id and then group by language.
+    try {
+      const res = await fetch(`https://api.opensubtitles.com/api/v1/subtitles?feature_id=${movie.id}`, { headers });
+      if (!res.ok) throw new Error("Failed to fetch subtitles");
+      const data = await res.json();
+      
+      const subs = data.data;
+      // Extract unique languages
+      const langsMap = new Map();
+      subs.forEach(sub => {
+        const l = sub.attributes.language;
+        if (!langsMap.has(l)) langsMap.set(l, []);
+        langsMap.get(l).push({
+          id: sub.attributes.files[0].file_id,
+          name: sub.attributes.release,
+          language: l
+        });
+      });
+      
+      const langsArray = Array.from(langsMap.keys());
+      setLanguages(langsArray);
+      setSubtitlesList(subs); // Store all raw subs to filter later
+      setStage('languages');
+      
+    } catch (err) {
+      // Fallback
+      setLanguages(['en', 'es']);
+      setStage('languages');
+    }
+  };
+
+  const handleSelectLanguage = (lang) => {
+    setSelectedLanguage(lang);
+    
+    // Filter the previously fetched subs by language
+    if (apiKey) {
+      const filtered = subtitlesList.filter(s => s.attributes.language === lang).map(s => ({
+        id: s.attributes.files[0].file_id,
+        name: s.attributes.release || 'Unknown Release'
+      }));
+      setSubtitlesList(filtered);
+    } else {
+      // Fallback
+      setSubtitlesList([
+        { id: '101', name: 'Release.1080p.WebRip' },
+        { id: '102', name: 'Release.720p.BRRip' }
+      ]);
+    }
+    setStage('subtitles');
+  };
+
+  const handleSelectSubtitle = async (sub) => {
+    setSelectedSubtitle(sub);
+    try {
+      if (apiKey) {
+        const postRes = await fetch('https://api.opensubtitles.com/api/v1/download', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ file_id: sub.id })
+        });
+        const postData = await postRes.json();
+        
+        const fileRes = await fetch(postData.link);
+        const srtText = await fileRes.text();
+        setSrtData(parseSRT(srtText));
+      } else {
+        // Fallback fake SRT
+        const fakeSrt = "1\n00:00:00,000 --> 00:00:05,000\nThis is a sample subtitle.\n\n2\n00:00:05,500 --> 00:00:10,000\nYou selected: " + sub.name;
+        setSrtData(parseSRT(fakeSrt));
+      }
+      setCurrentTime(0);
+      setStage('player');
+    } catch (err) {
+      alert("Error downloading subtitle");
+    }
+  };
+
+  // Player Logic
+  useEffect(() => {
+    if (isPlaying) {
+      lastUpdateRef.current = performance.now();
+      timerRef.current = requestAnimationFrame(updateTimer);
+    } else {
+      if (timerRef.current) cancelAnimationFrame(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) cancelAnimationFrame(timerRef.current);
+    }
+  }, [isPlaying]);
+
+  const updateTimer = (now) => {
+    const delta = (now - lastUpdateRef.current) / 1000;
+    setCurrentTime(prev => {
+      const newTime = prev + delta;
+      checkSubtitles(newTime);
+      return newTime;
+    });
+    lastUpdateRef.current = now;
+    timerRef.current = requestAnimationFrame(updateTimer);
+  };
+
+  const checkSubtitles = (timeSec) => {
+    if (!srtData || srtData.length === 0) return;
+    
+    // Find active subtitle
+    const activeSub = srtData.find(s => timeSec >= s.start && timeSec <= s.end);
+    if (activeSub) {
+      setCurrentText(activeSub.text);
+    } else {
+      setCurrentText('');
+    }
+
+    // Check end condition (10 seconds after last sub)
+    const lastSub = srtData[srtData.length - 1];
+    if (lastSub && timeSec > lastSub.end + 10) {
+      setIsPlaying(false);
+    }
+  };
+
+  const adjustTime = (seconds) => {
+    setCurrentTime(prev => {
+      let newTime = prev + seconds;
+      if (seconds < 0 && prev < 2) newTime = 0;
+      
+      const lastSub = srtData[srtData.length - 1];
+      if (seconds > 0 && lastSub) {
+        if (prev > lastSub.end + 10 - 2) {
+          // Si quedan menor de 2 segundo para llegar al final y se pulsa sobre +2, no debe ocurrir nada
+          return prev;
+        }
+      }
+      
+      checkSubtitles(newTime);
+      return Math.max(0, newTime); // never negative
+    });
+  };
+
+  const formatTime = (secs) => {
+    const min = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${min}:${s.toString().padStart(2, '0')}`;
+  };
+
+  if (!isActive) {
+    return null; // Hidden when inactive since App.jsx manages it
+  }
+
+  return (
+    <div className="subtitles-panel-container" style={{ backgroundColor: bgColor }}>
+      
+      {stage === 'search' && (
+        <div className="subs-setup-view">
+          <h2>Find Subtitles</h2>
+          <div className="search-bar">
+            <input 
+              className="search-input"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Movie title..."
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            />
+            <button className="search-btn" onClick={handleSearch}>Search</button>
+          </div>
+          <div className="list-container">
+            {movies.map(m => (
+              <div key={m.id} className="list-item" onClick={() => handleSelectMovie(m)}>
+                <h4>{m.title}</h4>
+                <p>{m.year}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stage === 'languages' && (
+        <div className="subs-setup-view">
+          <h2>Select Language</h2>
+          <button className="search-btn" style={{width:'fit-content', opacity: 0.7}} onClick={() => setStage('search')}>&larr; Back</button>
+          <div className="list-container">
+            {languages.map(l => (
+              <div key={l} className="list-item" onClick={() => handleSelectLanguage(l)}>
+                <h4>{l.toUpperCase()}</h4>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stage === 'subtitles' && (
+        <div className="subs-setup-view">
+          <h2>Select File</h2>
+          <button className="search-btn" style={{width:'fit-content', opacity: 0.7}} onClick={() => setStage('languages')}>&larr; Back</button>
+          <div className="list-container">
+            {subtitlesList.map((s, i) => (
+              <div key={s.id || i} className="list-item" onClick={() => handleSelectSubtitle(s)}>
+                <h4>{s.name}</h4>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stage === 'player' && (
+        <div className="subs-playback-view">
+          <div className="time-display">{formatTime(currentTime)}</div>
+          
+          <div className="subtitle-text" style={{ fontSize: `${textSize}px`, color: textColor }}>
+            {currentText}
+          </div>
+
+          <div className="playback-controls">
+            <button className="control-btn" onClick={() => adjustTime(-2)}>-2s</button>
+            <button className="control-btn play-btn" onClick={() => {
+              setIsPlaying(!isPlaying);
+              lastUpdateRef.current = performance.now();
+            }}>
+              {isPlaying ? '||' : '▶'}
+            </button>
+            <button className="control-btn" onClick={() => adjustTime(2)}>+2s</button>
+          </div>
+        </div>
+      )}
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <div className="modal-overlay" onClick={onCloseSettings}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Subtitles Settings</h3>
+              <button className="close-btn" onClick={onCloseSettings}>X</button>
+            </div>
+            
+            <div className="setting-group">
+              <label>API Key (OpenSubtitles)</label>
+              <input 
+                type="text" 
+                value={apiKey} 
+                onChange={(e) => setApiKey(e.target.value)} 
+                style={{padding: '8px', background:'rgba(255,255,255,0.1)', color:'white', border:'1px solid #333', borderRadius:'4px'}}
+                placeholder="YOUR_API_KEY"
+              />
+            </div>
+
+            <div className="setting-group">
+              <label>Text Size ({textSize}px)</label>
+              <input 
+                type="range" 
+                min="12" max="72" 
+                value={textSize} 
+                onChange={(e) => setTextSize(e.target.value)} 
+              />
+            </div>
+
+            <div className="setting-group">
+              <label>Text Color</label>
+              <input 
+                type="color" 
+                value={textColor} 
+                onChange={(e) => setTextColor(e.target.value)} 
+              />
+            </div>
+
+            <div className="setting-group">
+              <label>Background Color</label>
+              <input 
+                type="color" 
+                value={bgColor} 
+                onChange={(e) => setBgColor(e.target.value)} 
+              />
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

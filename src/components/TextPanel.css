@@ -1,0 +1,119 @@
+.text-panel-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 16px; 
+}
+
+/* The actual interactive element */
+.text-area {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+  padding: 16px;
+  box-sizing: border-box;
+  /* We align the real text area identical to the measure div */
+  text-align: center;
+  display: flex;
+  /* Ensure it doesn't wrap weirdly outside the visible area */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Hidden div used for calculating the text size */
+.text-measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  text-align: center;
+  /* Same padding as text-area */
+  padding: 16px;
+  box-sizing: border-box;
+  /* Allow it to grow naturally so we can check if scrollHeight > clientHeight */
+  width: 100%;
+  height: auto; 
+}
+
+/* Settings Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.6);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--menu-bg);
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  width: 85%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.close-btn {
+  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.setting-group label {
+  font-size: 14px;
+  color: #ccc;
+}
+.setting-group input[type="color"] {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: 8px;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+}
