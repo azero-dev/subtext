@@ -4,7 +4,7 @@ import { parseSRT } from '../utils/srtParser';
 import ColorPicker from './ColorPicker';
 
 export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettings, onShowMenuOptions }) {
-  const [apiKey, setApiKey] = useState(localStorage.getItem('os_api_key') || '');
+  const apiKey = import.meta.env.VITE_OPENSUBTITLES_API_KEY;
   const [textSize, setTextSize] = useState(24);
   const [textColor, setTextColor] = useState('#ffffff');
   const [bgColor, setBgColor] = useState('#000000');
@@ -55,11 +55,6 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
     }
   }, [onShowMenuOptions]);
 
-  // Persist API Key
-  useEffect(() => {
-    localStorage.setItem('os_api_key', apiKey);
-  }, [apiKey]);
-
   // Persist History
   useEffect(() => {
     localStorage.setItem('os_subtitles_history', JSON.stringify(history));
@@ -71,10 +66,6 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
   };
 
   const handleSearch = async () => {
-    if (!apiKey) {
-      alert("Please enter an OpenSubtitles API Key in the Settings first.");
-      return;
-    }
     if (!searchQuery) return;
 
     try {
@@ -401,17 +392,6 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
             <div className="modal-header">
               <h3>Subtitles Settings</h3>
               <button className="close-btn" onClick={onCloseSettings}>X</button>
-            </div>
-
-            <div className="setting-group">
-              <label>API Key (OpenSubtitles)</label>
-              <input
-                type="text"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                style={{ padding: '8px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid #333', borderRadius: '4px' }}
-                placeholder="YOUR_API_KEY"
-              />
             </div>
 
             <div className="setting-group">
