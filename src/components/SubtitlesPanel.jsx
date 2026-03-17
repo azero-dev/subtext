@@ -8,6 +8,12 @@ export default function SubtitlesPanel({ isActive, isSettingsOpen, onCloseSettin
   const [textSize, setTextSize] = useState(24);
   const [textColor, setTextColor] = useState('#ffffff');
   const [bgColor, setBgColor] = useState('#000000');
+  
+  useEffect(() => {
+    if (!apiKey) {
+      console.warn("OpenSubtitles API Key is missing. Please set VITE_OPENSUBTITLES_API_KEY in your environment variables.");
+    }
+  }, [apiKey]);
 
   // Stages: 'search', 'languages', 'subtitles', 'player'
   const [stage, setStage] = useState('search');

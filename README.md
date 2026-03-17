@@ -1,18 +1,39 @@
-# React + Vite
+# SubText
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+SubText displays custom text overlays and synchronises film subtitles.
 
-Currently, two official plugins are available:
+**On-screen Text:** Communicate in noisy environments or silent situations. The application renders full-screen text, dynamically scaling the font to occupy all available space.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**Film Subtitles:** View subtitles for foreign language content. SubText queries the OpenSubtitles database and renders captions synchronised with playback time.
 
-## React Compiler
+## Features
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- **Privacy-focused:** All operations execute locally. No telemetry or external data transmission.
+- **Subtitle Search & Playback:** Integrates with the OpenSubtitles API for retrieval and synchronization.
+- **Language Filtering:** Organises subtitles by language.
+- **Dynamic Text Scaling:** Automatically adjusts typography to fill the viewport during input.
+- **Customizable Appearance:** Configurable foreground/background colours and font sizes.
 
-Note: This will impact Vite dev & build performances.
+## Installation
 
-## Expanding the ESLint configuration
+### Mobile (PWA)
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+**Firefox:**
+1. Open the application URL.
+2. Access the menu (⋮) in the bottom-right corner.
+3. Select "Add to Home Screen".
+4. Confirm installation.
+
+**Chrome:**
+1. Open the application URL.
+2. Access the menu (⋮) in the top-right corner.
+3. Select "Install App" or "Add to Home Screen".
+4. Confirm installation.
+
+## License
+
+GNU General Public License v3.0 – see the [LICENSE](https://github.com/azero-dev/subtext/blob/main/LICENSE) file.
+
+## AI Disclosure
+
+Generative AI tools were utilised for code generation within this project.
